@@ -1,5 +1,5 @@
 --====================================================
--- AUTO HOP SERVER KHI CÓ BOSS RIP (BLOX FRUITS)
+-- AUTO JOIN / AUTO HOP SERVER 3–4 NGƯỜI (FULL)
 --====================================================
 
 repeat task.wait() until game:IsLoaded()
@@ -11,7 +11,6 @@ repeat task.wait() until game.Players.LocalPlayer
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Player = Players.LocalPlayer
 local PlaceId = game.PlaceId
@@ -20,64 +19,39 @@ local JobId = game.JobId
 --==============================
 -- CONFIG (LƯU QUA TELEPORT)
 --==============================
-getgenv().BossHopConfig = getgenv().BossHopConfig or {
-    Enabled = true,
-    DelayHop = 3,
-    BossList = { -- TÊN BOSS RIP
-        "Rip Indra",
-        "rip_indra",
-        "Rip_Indra"
-    }
+getgenv().ServerConfig = getgenv().ServerConfig or {
+    Enabled = true,        -- ON / OFF AUTO JOIN
+    MinPlayer = 3,         -- tối thiểu
+    MaxPlayer = 4,         -- tối đa
+    DelayHop = 3           -- delay trước khi hop
 }
 
--- LƯU SERVER ĐÃ VÀO
-getgenv().VisitedServer = getgenv().VisitedServer or {}
+-- LƯU SERVER ĐÃ VÀO (TRÁNH VÒNG LẶP)
+getgenv().JoinedServers = getgenv().JoinedServers or {}
 
 --==============================
 -- QUEUE ON TELEPORT (GIỮ SCRIPT)
 --==============================
 if queue_on_teleport then
     queue_on_teleport([[
-        loadstring(game:HttpGet("YOUR_RAW_LINK_HERE"))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/yourlink/fullcode.lua"))()
     ]])
 end
--- (Nếu không dùng raw link thì bỏ đoạn trên)
+-- (nếu bạn không dùng raw link thì bỏ đoạn trên)
 
 --==============================
--- CHECK BOSS RIP
+-- KIỂM TRA SERVER HIỆN TẠI
 --==============================
-local function BossExists()
-    -- Check trong Workspace
-    if workspace:FindFirstChild("Enemies") then
-        for _,mob in pairs(workspace.Enemies:GetChildren()) do
-            for _,bossName in pairs(getgenv().BossHopConfig.BossList) do
-                if mob.Name == bossName
-                and mob:FindFirstChild("Humanoid")
-                and mob.Humanoid.Health > 0 then
-                    return true
-                end
-            end
-        end
-    end
-
-    -- Check ReplicatedStorage (boss sắp spawn)
-    if ReplicatedStorage:FindFirstChild("Enemies") then
-        for _,mob in pairs(ReplicatedStorage.Enemies:GetChildren()) do
-            for _,bossName in pairs(getgenv().BossHopConfig.BossList) do
-                if mob.Name == bossName then
-                    return true
-                end
-            end
-        end
-    end
-
-    return false
+local function CurrentServerValid()
+    local count = #Players:GetPlayers()
+    return count >= getgenv().ServerConfig.MinPlayer
+       and count <= getgenv().ServerConfig.MaxPlayer
 end
 
 --==============================
--- FIND SERVER
+-- TÌM SERVER 3–4 NGƯỜI
 --==============================
-local function FindServer()
+local function FindLowServer()
     local cursor = ""
 
     repeat
@@ -92,8 +66,10 @@ local function FindServer()
         local data = HttpService:JSONDecode(game:HttpGet(url))
 
         for _,server in pairs(data.data) do
-            if server.id ~= JobId
-            and not getgenv().VisitedServer[server.id] then
+            if server.playing >= getgenv().ServerConfig.MinPlayer
+            and server.playing <= getgenv().ServerConfig.MaxPlayer
+            and server.id ~= JobId
+            and not getgenv().JoinedServers[server.id] then
                 return server.id
             end
         end
@@ -105,15 +81,15 @@ local function FindServer()
 end
 
 --==============================
--- HOP SERVER
+-- TELEPORT
 --==============================
 local function HopServer()
-    if not getgenv().BossHopConfig.Enabled then return end
+    if not getgenv().ServerConfig.Enabled then return end
 
-    local serverId = FindServer()
+    local serverId = FindLowServer()
     if serverId then
-        getgenv().VisitedServer[serverId] = true
-        task.wait(getgenv().BossHopConfig.DelayHop)
+        getgenv().JoinedServers[serverId] = true
+        task.wait(getgenv().ServerConfig.DelayHop)
 
         TeleportService:TeleportToPlaceInstance(
             PlaceId,
@@ -121,30 +97,26 @@ local function HopServer()
             Player
         )
     else
-        warn("❌ Không còn server để hop, chờ 10s...")
-        task.wait(10)
+        warn("❌ Không tìm thấy server 3–4 người, thử lại...")
+        task.wait(5)
         HopServer()
     end
 end
 
 --==============================
--- MAIN LOOP
+-- MAIN
 --==============================
-task.spawn(function()
-    while task.wait(2) do
-        if getgenv().BossHopConfig.Enabled then
-            if BossExists() then
-                warn("👑 BOSS RIP ĐÃ SPAWN – DỪNG HOP")
-                break
-            else
-                warn("❌ Chưa có boss RIP – HOP SERVER")
-                HopServer()
-            end
-        end
+if getgenv().ServerConfig.Enabled then
+    if not CurrentServerValid() then
+        HopServer()
+    else
+        warn("✅ Server hiện tại đã đúng 3–4 người, không cần hop")
     end
-end)
+end
 
 --==============================
 -- COMMAND NHANH
 --==============================
--- getgenv().BossHopConfig.Enabled = true / false
+-- getgenv().ServerConfig.Enabled = true / false
+-- getgenv().ServerConfig.MinPlayer = 3
+-- getgenv().ServerConfig.MaxPlayer = 4
