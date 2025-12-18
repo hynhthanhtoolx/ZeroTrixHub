@@ -1,5 +1,5 @@
 --====================================================
--- PLAYER ESP (NAME + DISTANCE + LEVEL)
+-- PLAYER ESP FIXED (BLOX FRUITS)
 --====================================================
 
 repeat task.wait() until game:IsLoaded()
@@ -10,54 +10,66 @@ repeat task.wait() until game.Players.LocalPlayer
 --==============================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
 
 local LocalPlayer = Players.LocalPlayer
 
 --==============================
 -- CONFIG
 --==============================
-getgenv().ESP_Config = getgenv().ESP_Config or {
+getgenv().ESP_Config = {
     Enabled = true,
-    ShowDistance = true,
-    ShowLevel = true,
-    MaxDistance = 5000 -- studs
+    MaxDistance = 5000
 }
 
--- LƯU ESP
-local ESPObjects = {}
+--==============================
+-- ESP STORAGE
+--==============================
+local ESPs = {}
 
 --==============================
--- TẠO ESP
+-- GET LEVEL (FIX)
 --==============================
-local function CreateESP(player)
-    if player == LocalPlayer then return end
-
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "PlayerESP"
-    billboard.AlwaysOnTop = true
-    billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.TextScaled = true
-    label.Font = Enum.Font.SourceSansBold
-    label.TextStrokeTransparency = 0
-
-    label.Parent = billboard
-
-    ESPObjects[player] = billboard
+local function GetLevel(player)
+    local ls = player:FindFirstChild("leaderstats")
+    if ls and ls:FindFirstChild("Level") then
+        return ls.Level.Value
+    end
+    return "?"
 end
 
 --==============================
--- XÓA ESP
+-- CREATE ESP
+--==============================
+local function CreateESP(player)
+    if player == LocalPlayer then return end
+    if ESPs[player] then return end
+
+    local bb = Instance.new("BillboardGui")
+    bb.Name = "ESP"
+    bb.Size = UDim2.new(0, 220, 0, 50)
+    bb.AlwaysOnTop = true
+    bb.StudsOffset = Vector3.new(0, 3, 0)
+
+    local txt = Instance.new("TextLabel")
+    txt.Size = UDim2.new(1, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.TextScaled = false
+    txt.TextSize = 14
+    txt.Font = Enum.Font.SourceSansBold
+    txt.TextColor3 = Color3.fromRGB(255, 80, 80)
+    txt.TextStrokeTransparency = 0
+
+    txt.Parent = bb
+    ESPs[player] = bb
+end
+
+--==============================
+-- REMOVE ESP
 --==============================
 local function RemoveESP(player)
-    if ESPObjects[player] then
-        ESPObjects[player]:Destroy()
-        ESPObjects[player] = nil
+    if ESPs[player] then
+        ESPs[player]:Destroy()
+        ESPs[player] = nil
     end
 end
 
@@ -67,44 +79,33 @@ end
 RunService.RenderStepped:Connect(function()
     if not getgenv().ESP_Config.Enabled then return end
 
+    local myChar = LocalPlayer.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+
     for _,player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer
         and player.Character
         and player.Character:FindFirstChild("HumanoidRootPart") then
 
-            if not ESPObjects[player] then
-                CreateESP(player)
-                ESPObjects[player].Parent =
-                    player.Character.HumanoidRootPart
-            end
-
             local hrp = player.Character.HumanoidRootPart
-            local myHrp = LocalPlayer.Character
-                and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local distance = math.floor(
+                (hrp.Position - myHRP.Position).Magnitude
+            )
 
-            if myHrp then
-                local distance =
-                    math.floor((hrp.Position - myHrp.Position).Magnitude)
+            if distance <= getgenv().ESP_Config.MaxDistance then
+                if not ESPs[player] then
+                    CreateESP(player)
+                    ESPs[player].Parent = hrp
+                end
 
-                if distance <= getgenv().ESP_Config.MaxDistance then
-                    local text = player.Name
-
-                    if getgenv().ESP_Config.ShowLevel then
-                        local level = player:FindFirstChild("Data")
-                            and player.Data:FindFirstChild("Level")
-                        if level then
-                            text = text .. " | Lv." .. level.Value
-                        end
-                    end
-
-                    if getgenv().ESP_Config.ShowDistance then
-                        text = text .. " | " .. distance .. "m"
-                    end
-
-                    ESPObjects[player].TextLabel.Text = text
-                    ESPObjects[player].Enabled = true
-                else
-                    ESPObjects[player].Enabled = false
+                local level = GetLevel(player)
+                ESPs[player].TextLabel.Text =
+                    player.Name .. " | Lv." .. level .. " | " .. distance .. "m"
+                ESPs[player].Enabled = true
+            else
+                if ESPs[player] then
+                    ESPs[player].Enabled = false
                 end
             end
         else
@@ -114,8 +115,8 @@ RunService.RenderStepped:Connect(function()
 end)
 
 --==============================
--- PLAYER JOIN / LEAVE
+-- CLEANUP
 --==============================
 Players.PlayerRemoving:Connect(RemoveESP)
 
-warn("✅ PLAYER ESP LOADED")
+warn("✅ ESP PLAYER FIXED – ĐÃ HOẠT ĐỘNG")
